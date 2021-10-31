@@ -1,4 +1,8 @@
 <?php
+include "autoload.php";
+// dev
+echo env('APP_KEY');  
+die;
 session_start();
 include('db.php');
 
