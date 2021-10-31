@@ -1,4 +1,5 @@
 <?php
+include "autoload.php";
 session_start();
 $current_user_id = $_SESSION["id"];
 include('db.php');
