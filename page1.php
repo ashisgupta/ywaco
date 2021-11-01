@@ -28,11 +28,28 @@ $row_invest = $result_invest->fetch_row();
 $result = $conn->query($sql);
 $result_exp = $conn->query($sql_exp);
 
-
+if(isset($_POST['next_event'])){
+  $sql_events = "SELECT id FROM events";
+  $result_events = $conn->query($sql_events);
+$row_events = $result_events->fetch_all();$value=[];
+// foreach ($row_events as $key => $value) {
+//   $value[]=$value;
+// }
+shuffle($row_events);
+$oneRandomElements = array_slice($row_events, 0, 1);
+$oneRandomElements = is_array($oneRandomElements) ? current($oneRandomElements):'';
+$oneRandomElements = is_array($oneRandomElements) ? current($oneRandomElements):'';
+  $sql_event = "SELECT * FROM events WHERE id='$oneRandomElements'";
+  $result_event = $conn->query($sql_event);
+$row_event = $result_event->fetch_assoc();
+// echo "<pre>";
+// print_r((($row_event)));
+// die;
+}
 
 //print_r($result1->fetch_assoc());die;
 //print_r($_SESSION);die;
-if(isset($_POST['sell']) || isset($_POST['buy'])){ //check if form was submitted
+if(isset($_POST['sell']) || isset($_POST['buy']) ){ //check if form was submitted
 
 //   $input = $_POST['first_name']; //get input text
 //   $message = "Success! You entered: ".$input;
@@ -130,6 +147,18 @@ die();
 
 
   <div class="container">
+
+    <div class="section">
+      <form class="" method="post" action="page1.php">
+        <input type="hidden" name="next_event" value="1">
+         
+        <div class="card-action">
+                <button class="btn waves-effect waves-light" type="submit" name="next_year">Next Year
+            <i class="material-icons right">send</i>
+              
+              </div>
+      </form>
+    </div>
     <div class="section">
       <div class="col s12 center">
           <h3><i class="mdi-content-send brown-text"></i></h3>
@@ -324,25 +353,20 @@ while($row5 = $result5->fetch_assoc()){
      <!-- Modal Structure -->
     <div id="modal1" class="modal modal-fixed-footer">
       <div class="modal-content">
-        <h4>Terms and Conditions</h4>
-        <p>Welcome! You have just started your career as a first year at a very high performance and high paying company </p>
-        <p>The Company pays you 10000 rs every year (did we mention it’s a high paying company? ;P Amount is just for game mechanics) </p>
-        <p>You will receive a minimum 1000 rs raise every year</p>
-        <p>On the day of your first salary - the president of your company bumps into you and advises you to use the money wisely </p>
-        <p>He suggests visiting the market and checking all the financial options available to you</p>
-        <p>Some options are readily available, while others may requir building some networth before they can be unlocked</p>
-        <p>The Game will start with you first year salary of 10000rs </p>
-        <p>You have 2 minutes to decide how you want to use the available salary</p>
-        <p>Read the descrition of each investment carefully</p>
-        <p>Input the amount you want to invest </p>
-        <p>Post 2 minutes the game will take the last available inputs as final and compute respective returns, if any</p>
-        <p>Each item has different characteristics and will give different returns depending upon events and overall economic scenario</p>
-        <p>total 7 rounds will be played - each round representing a period of time and having certain fixed and random events</p>
-        <p>Each round will have 2 minutes to decide the utiization of money fo that year </p>
-        <p>Goal: to get the Highest networth towards the end of the game</p>
+        <h4>Yearly Event</h4>
+        <p>Event Name : <?php 
+        if(isset($row_event['event_name'])) {
+          echo  $row_event['event_name']; 
+        }
+        ?></p>
+        <p>Event Description : <?php 
+        if(isset($row_event['description'])) {
+          echo  $row_event['description']; 
+        }
+        ?></p>
+        
         <br>
-        <h4>Tips</h4>
-        <p>You can leave some money as cash also</p>
+        
       </div>
       <div class="modal-footer">
         <a href="#!" class="modal-close waves-effect waves-green btn-flat">Close</a>
@@ -351,6 +375,8 @@ while($row5 = $result5->fetch_assoc()){
 
   </div>
 
+
+   
 
  
 
@@ -421,6 +447,20 @@ while($row5 = $result5->fetch_assoc()){
   });
           
   </script>
+  <?php if(isset($_POST['next_event'])){ 
+
+    ?>
+  <script type="text/javascript">
+
+  $(document).ready(function(){
+    
+    $('#modal1').modal('open');
+
+        
+  });
+          
+  </script>
+  <?php } ?>
 
   </body>
 </html>
