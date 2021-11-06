@@ -18,13 +18,18 @@ $last_name = mysqli_real_escape_string($conn, $_REQUEST['last_name']);
 $email = mysqli_real_escape_string($conn, $_REQUEST['email']);
 $dob = mysqli_real_escape_string($conn, $_REQUEST['dob']);
 $institution_name = mysqli_real_escape_string($conn, $_REQUEST['institutions']);
+$first_cash_in_hand = 10000;
+$year = 1;
  
 // Attempt insert query execution
-$sql = "INSERT INTO users (first_name, last_name, email, dob, institution_name) VALUES ('$first_name', '$last_name', '$email', '$dob', '$institution_name')";
+$sql = "INSERT INTO users (first_name, last_name, email, dob, institution_name,first_cash_in_hand) VALUES ('$first_name', '$last_name', '$email', '$dob', '$institution_name','$first_cash_in_hand')";
 // Set session variables
 $_SESSION["first_name"] = $_REQUEST['first_name'];
 $_SESSION["last_name"] = $_REQUEST['first_name'];
 $_SESSION["email"] = $_REQUEST['email'];
+$_SESSION["first_cash_in_hand"] = $first_cash_in_hand;
+$_SESSION["year"] = $year;
+
 
 
 if ($conn->query($sql) === TRUE) {

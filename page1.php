@@ -3,9 +3,12 @@ include "autoload.php";
 session_start();
 $current_user_id = $_SESSION["id"];
 include('db.php');
+include('page1_sql.php');
 $sql = "SELECT * FROM investment_options";
 $sql_exp = "SELECT * FROM expense_options";
-$sql1 = "SELECT name, SUM(buy_sell_amount) FROM investments WHERE user_id='$current_user_id' GROUP BY name";
+$sql1 = "SELECT name, SUM(buy_sell_amount) FROM transactions WHERE user_id='$current_user_id' GROUP BY name";
+
+$sql1 = "SELECT expense_investment_name, SUM(buy_sell_amount) FROM transactions WHERE user_id='$current_user_id' GROUP BY expense_investment_name";
 
 $sql_exp1 = "SELECT name, SUM(buy_sell_amount) FROM expenses_transactions WHERE user_id='$current_user_id' GROUP BY name";
 
@@ -13,12 +16,14 @@ $sql_h_q = "SELECT SUM(happiness_quotient) FROM expenses_transactions WHERE user
 $result_h_q = $conn->query($sql_h_q);
 $row_h_q = $result_h_q->fetch_row();
 
-$sql_invest = "SELECT SUM(buy_sell_amount) FROM investments WHERE user_id='$current_user_id'";
+$sql_invest = "SELECT SUM(buy_sell_amount) FROM transactions WHERE user_id='$current_user_id'";
 //print_r($sql_invest);die;
 $result_invest = $conn->query($sql_invest);
 $row_invest = $result_invest->fetch_row();
 //print_r($row_invest);die;
 
+//$cash_in_hand = $_SESSION["first_cash_in_hand"];
+$year = $_SESSION["year"];
 
 // $sql4 = "SELECT * FROM users where id='$current_user_id'";
 // $result4 = $conn->query($sql4);
@@ -47,6 +52,17 @@ $row_event = $result_event->fetch_assoc();
 // die;
 }
 
+$cash_sql = "SELECT * FROM investments WHERE user_id='$current_user_id'";
+$cash_result = $conn->query($cash_sql);
+//$cash_all = $cash_result->fetch_assoc();
+// echo "<pre>";
+//  while($row_exp = $cash_result->fetch_assoc()) {
+// print_r($row_exp);
+//  }
+
+
+//die;
+
 //print_r($result1->fetch_assoc());die;
 //print_r($_SESSION);die;
 if(isset($_POST['sell']) || isset($_POST['buy']) ){ //check if form was submitted
@@ -58,11 +74,18 @@ if(isset($_POST['sell']) || isset($_POST['buy']) ){ //check if form was submitte
     // Escape user inputs for security
 $investment_type = mysqli_real_escape_string($conn, $_REQUEST['investment_type']);
 $amt_inv = mysqli_real_escape_string($conn, $_REQUEST['amt_inv']);
-$inp_amt = mysqli_real_escape_string($conn, isset($_REQUEST['inp_amt'])? $_REQUEST['inp_amt']:"");
+$inp_amt = mysqli_real_escape_string($conn, isset($_REQUEST['inp_amt'])? $_REQUEST['inp_amt']:0);
+$amt_inv = $amt_inv+$inp_amt;
 $current_market_value = mysqli_real_escape_string($conn, $_REQUEST['current_market_value']);
 $property_unit = isset($_REQUEST['property_unit']) ? mysqli_real_escape_string($conn, $_REQUEST['property_unit']):"0";
-if(isset($_POST['sell'])) {
+$opening_cash_in_hand = $cash_in_hand;
+if(isset($_POST['buy'])) {
+  $closing_cash_in_hand = $opening_cash_in_hand - $inp_amt;
   $inp_amt = -1 * abs($inp_amt);
+  $buy_sell_type=1;
+} else {
+  $closing_cash_in_hand = $opening_cash_in_hand + $inp_amt;
+  $buy_sell_type=2;
 }
 
 if($investment_type=='Property'){
@@ -75,16 +98,49 @@ $result3 = $conn->query($sql3);
 while($row3 = $result3->fetch_assoc()){
      $json = $row3;
 }
+
+if($investment_type=='Property'){
 $units = isset($json['SUM(buy_sell_unit)']) ? $json['SUM(buy_sell_unit)']:0;
 if(($units<$property_unit) && isset($_POST['sell'])) {
-  echo "alert('Units Not available!')";
-  header("Location:page1.php");
+   echo "<script>   
+$(document).ready(function(){
+   var toastHTML = '<span>I am toast content</span><button class=\"btn-flat toast-action\">Undo</button>';
+  M.toast({html: toastHTML});
+  });
+   </script>";
+   die;
+  echo "<script> confirm('Units Not available!');
+  </script>";
+  echo "<script> 
+window.location.href = 'Location:page1.php';
+
+  </script>";
+
+}
+} else {
+  $total_amount = isset($json['SUM(buy_sell_amount)']) ? $json['SUM(buy_sell_amount)']:0;
+  // echo "<pre>";
+  // print_r($total_amount); echo "<hr>";
+  // print_r($inp_amt);
+  // print_r($_POST);
+ 
+if( ($total_amount<$inp_amt) && isset($_POST['sell'])) {
+  echo "<hr> here";
+  echo "<script> confirm('Not available to sell!');
+window.location.href = 'Location:page1.php';
+
+  </script>";
+
+}
+ //die;
 }
 
 
+
+
  $id = $_SESSION["id"];
-// Attempt insert query execution
-$sql = "INSERT INTO investments (name, user_id, current_market_value, invested_amount, buy_sell_amount, buy_sell_unit) VALUES ('$investment_type', '$id', '$current_market_value', '$amt_inv', '$inp_amt', '$property_unit')";
+//Insert Investments
+$sql = "INSERT INTO transactions (expense_investment_name, user_id, current_market_value, invested_amount, buy_sell_amount, buy_sell_unit,opening_cash_in_hand, closing_cash_in_hand, year,buy_sell_type) VALUES ('$investment_type', '$id', '$current_market_value', '$amt_inv', '$inp_amt', '$property_unit', '$opening_cash_in_hand', '$closing_cash_in_hand', '$year','$buy_sell_type')";
 
 if ($conn->query($sql) === TRUE) {
   header("Location:page1.php");
@@ -101,10 +157,10 @@ $amt_inv = mysqli_real_escape_string($conn, $_REQUEST['amt_inv']);
 $inp_amt = mysqli_real_escape_string($conn, isset($_REQUEST['inp_amt'])? $_REQUEST['inp_amt']:"");
 $current_market_value = mysqli_real_escape_string($conn, $_REQUEST['current_market_value']);
 $property_unit = isset($_REQUEST['property_unit']) ? mysqli_real_escape_string($conn, $_REQUEST['property_unit']):"0";
-
+$inp_amt = -1 * abs($inp_amt);
  $id = $_SESSION["id"];
-// Attempt insert query execution
-$sql = "INSERT INTO expenses_transactions (name, user_id, current_market_value, invested_amount, buy_sell_amount, buy_sell_unit,happiness_quotient) VALUES ('$investment_type', '$id', '$current_market_value', '$amt_inv', '$inp_amt', '$property_unit','$happiness_quotient')";
+// insert expenses
+$sql = "INSERT INTO transactions (expense_investment_name, user_id, current_market_value, invested_amount, buy_sell_amount, buy_sell_unit,happiness_quotient) VALUES ('$investment_type', '$id', '$current_market_value', '$amt_inv', '$inp_amt', '$property_unit','$happiness_quotient')";
 if ($conn->query($sql) === TRUE) {
   header("Location:page1.php");
 die();
@@ -162,7 +218,7 @@ die();
     <div class="section">
       <div class="col s12 center">
           <h3><i class="mdi-content-send brown-text"></i></h3>
-          <h4>Page 1</h4>
+          <h4>Expenses</h4>
       </div>
       <!--   Icon Section   -->
       <div class="row">
@@ -172,7 +228,7 @@ die();
       if ($result_exp->num_rows > 0) {
   // output data of each row
   while($row_exp = $result_exp->fetch_assoc()) {
-    $result_exp1 = $conn->query($sql_exp1);
+    $result_exp1 = $conn->query($transactions);
 
       ?>
        <form class="col m6" method="post" action="page1.php">
@@ -191,11 +247,11 @@ die();
                 <?php
                 
                 $amt = 0;
-                 if ($result_exp1->num_rows > 0) {
+                 if (isset($result_exp1) && !empty($result_exp1) && ($result_exp1->num_rows > 0)) {
   // output data of each row
   while($row_exp1 = $result_exp1->fetch_assoc()) {
 //print_r($row1['name']);print_r($row['name']);
-if(strtolower($row_exp1["name"])==strtolower($row_exp["name"])){
+if(strtolower($row_exp1["expense_investment_name"])==strtolower($row_exp["name"])){
   $amt = $row_exp1['SUM(buy_sell_amount)'];
 }
   }}
@@ -245,10 +301,11 @@ if(strtolower($row_exp1["name"])==strtolower($row_exp["name"])){
         ?>
 
  <?php 
-      if ($result->num_rows > 0) {
+      if ($result_investment_options->num_rows > 0) {
   // output data of each row
-  while($row = $result->fetch_assoc()) {
-    $result1 = $conn->query($sql1);
+  while($row = $result_investment_options->fetch_assoc()) {
+    $result1 = $conn->query($transactions);
+   //print_r($result1);die;
       ?>
        <form class="col s8 m6" method="post" action="page1.php">
         <input type="hidden" name="investment_type" value="<?php echo $row['name']; ?>">
@@ -262,11 +319,11 @@ if(strtolower($row_exp1["name"])==strtolower($row_exp["name"])){
                 <p>Current Market Price : <?php echo isset($row["market_value"]) ? $row["market_value"]:""; ?></p>
                 <?php
                 $amt = 0;
-                 if ($result1->num_rows > 0) {
+                 if(isset($result1) && !empty($result1) && ($result1->num_rows > 0) ) {
   // output data of each row
   while($row1 = $result1->fetch_assoc()) {
 //print_r($row1['name']);print_r($row['name']);
-if(strtolower($row1["name"])==strtolower($row["name"])){
+if(strtolower($row1["expense_investment_name"])==strtolower($row["name"])){
   $amt = $row1['SUM(buy_sell_amount)'];
 }
   }}
@@ -324,23 +381,28 @@ if(strtolower($row1["name"])==strtolower($row["name"])){
      <div class="col s4 center">
    
        <div class="row">
+        <h4>Session id : <?php echo $_SESSION["id"];?></h4>
+          <h4>Name : <?php echo $_SESSION["first_name"]." ".$_SESSION["last_name"]?></h4>
+          <h4>Cash in hand : <?php echo $cash_in_hand; ?></h4>
         <h4>Happiness Coeffecient : <?php echo $row_h_q[0]; ?></h4>
 
-        <h4>Session</h4>
+       
         <div>
-          <h4>id : <?php echo $_SESSION["id"];?></h4>
-          <h4>Name : <?php echo $_SESSION["first_name"]." ".$_SESSION["last_name"]?></h4>
-          <h4>Investment :  <?php echo $row_invest[0]; ?></h4>
+          <h4>Investment :  <?php echo abs($row_invest[0]); ?></h4>
+          <h4>Networth :  <?php echo abs($row_invest[0]); ?></h4>
+          <h4>Investment Details </h4>
           <?php 
  $result5 = $conn->query($sql1);
 while($row5 = $result5->fetch_assoc()){
      $json5[] = $row5;
-     echo "<h5>".ucwords($row5['name'])." : "."<strong>".$row5['SUM(buy_sell_amount)']."</h5></strong>";
+     echo "<h5>".ucwords($row5['expense_investment_name'])." : "."<strong>".abs($row5['SUM(buy_sell_amount)'])."</h5></strong>";
 }
+
 // echo "<pre>";
 // print_r($json5);
 // die;
           ?>
+
         </div>
        </div>
 
