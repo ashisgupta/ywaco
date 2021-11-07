@@ -1,6 +1,7 @@
 <?php
 include "autoload.php";
 
+
 session_start();
 include('db.php');
 
@@ -29,7 +30,7 @@ $_SESSION["last_name"] = $_REQUEST['first_name'];
 $_SESSION["email"] = $_REQUEST['email'];
 $_SESSION["first_cash_in_hand"] = $first_cash_in_hand;
 $_SESSION["year"] = $year;
-
+$_SESSION["first_cash_in_hand_flag"]=0;
 
 
 if ($conn->query($sql) === TRUE) {
