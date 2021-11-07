@@ -59,8 +59,10 @@ if(!empty($result_once_expenses_purchased)) {
 // die;
 
 $invested_amount = getInvestedAmount($_SESSION['id'],$conn);
+
+$happiness_quotient = getHappinessQuotient($_SESSION['id'],$conn);
 // echo "<pre>";
-// print_r($invested_amount);
+// print_r($happiness_quotient);
 // die;
 
 
@@ -157,7 +159,13 @@ function getInvestedAmount($user_id,$conn){
 	return $investment_arr;
 }
 
-
+function getHappinessQuotient($user_id,$conn){
+	$sql = "SELECT SUM(happiness_quotient) FROM transactions WHERE user_id='$user_id'";
+	$result = $conn->query($sql);
+	$result = $result->fetch_assoc();
+	$happiness_quotient = isset($result['SUM(happiness_quotient)']) ?$result['SUM(happiness_quotient)']:0;
+	return $happiness_quotient;
+}
 
 
 

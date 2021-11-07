@@ -456,7 +456,7 @@ if(strtolower($row1["expense_investment_name"])==strtolower($row["name"])){
         <h4>Session id : <?php echo $_SESSION["id"];?></h4>
           <h4>Name : <?php echo $_SESSION["first_name"]." ".$_SESSION["last_name"]?></h4>
           <h4>Cash in hand : <?php echo $cash_in_hand; ?></h4>
-        <h4>Happiness Coeffecient : <?php echo $row_h_q[0]; ?></h4>
+        <h4>Happiness Coeffecient : <?php echo $happiness_quotient; ?></h4>
 
        
         <div>
