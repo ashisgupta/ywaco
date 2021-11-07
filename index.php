@@ -26,7 +26,7 @@ $year = 1;
 $sql = "INSERT INTO users (first_name, last_name, email, dob, institution_name,first_cash_in_hand) VALUES ('$first_name', '$last_name', '$email', '$dob', '$institution_name','$first_cash_in_hand')";
 // Set session variables
 $_SESSION["first_name"] = $_REQUEST['first_name'];
-$_SESSION["last_name"] = $_REQUEST['first_name'];
+$_SESSION["last_name"] = $_REQUEST['last_name'];
 $_SESSION["email"] = $_REQUEST['email'];
 $_SESSION["first_cash_in_hand"] = $first_cash_in_hand;
 $_SESSION["year"] = $year;

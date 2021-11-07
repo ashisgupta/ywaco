@@ -2,6 +2,12 @@
 //read investment
 $investment_options = "SELECT * FROM investment_options";
 $result_investment_options = $conn->query($investment_options);
+$result_investment_options_1 = $conn->query($investment_options);
+// echo "<pre>";
+//  while(($row = $result_investment_options->fetch_assoc()) ) {
+//  	print_r($row);
+//  }
+//  die;
 //read expenses
 $expense_options = "SELECT * FROM expense_options";
 //read all transactions

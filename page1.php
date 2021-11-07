@@ -12,9 +12,9 @@ $sql_h_q = "SELECT SUM(happiness_quotient) FROM expenses_transactions WHERE user
 $result_h_q = $conn->query($sql_h_q);
 $row_h_q = $result_h_q->fetch_row();
 
-$sql_invest = "SELECT SUM(buy_sell_amount) FROM transactions WHERE user_id='$current_user_id'";
-//print_r($sql_invest);die;
-$result_invest = $conn->query($sql_invest);
+// $sql_invest = "SELECT SUM(buy_sell_amount) FROM transactions WHERE user_id='$current_user_id'";
+// //print_r($sql_invest);die;
+// $result_invest = $conn->query($sql_invest);
 $row_invest = 0;//$result_invest->fetch_row();
 //print_r($row_invest);die;
 
@@ -28,6 +28,7 @@ $year = $_SESSION["year"];
 
 $result = $conn->query($sql);
 $result_exp = $conn->query($sql_exp);
+$result_exp_1 = $conn->query($sql_exp);
 
 if(isset($_POST['next_event'])){
   $year_amount = $_SESSION['year']*1000+10000;
@@ -95,15 +96,18 @@ if(isset($_POST['buy'])) {
 }
 
 if($investment_type=='Property'){
-  $sql3 =  "SELECT name, SUM(buy_sell_unit) FROM investments WHERE user_id='$current_user_id' AND name='$investment_type'  GROUP BY name";
+  $sql3 =  "SELECT name, SUM(buy_sell_unit) FROM investments WHERE user_id='$current_user_id' AND name='$investment_type'";
 }else {
-  $sql3 =  "SELECT name, SUM(buy_sell_amount) FROM investments WHERE user_id='$current_user_id' AND name='$investment_type'  GROUP BY name";
+  $sql3 =  "SELECT name, SUM(sell_amount) FROM investments WHERE user_id='$current_user_id' AND name='$investment_type'";
+}
+$json = [];
+$result3 = $conn->query($sql3);
+if(!empty($result_expenses_purchased->num_rows)) {
+  while($row3 = $result3->fetch_assoc()){
+       $json = $row3;
+  }
 }
 
-$result3 = $conn->query($sql3);
-while($row3 = $result3->fetch_assoc()){
-     $json = $row3;
-}
 
 if($investment_type=='Property'){
 $units = isset($json['SUM(buy_sell_unit)']) ? $json['SUM(buy_sell_unit)']:0;
@@ -113,14 +117,21 @@ header("Location:page1.php");
 
 }
 } else {
-  $total_amount = isset($json['SUM(buy_sell_amount)']) ? $json['SUM(buy_sell_amount)']:0;
+  if(isset($invested_amount['details']) && is_array($invested_amount['details']) ){
+     foreach ($invested_amount['details'] as $key => $row5) {
+      if(strtolower($row5["name"])==strtolower($investment_type)){
+        $t_amt =$row5['current_value'];
+      }
+     }
+  }
+  $total_amount = isset($t_amt) ? $t_amt:0;
   // echo "<pre>";
   // print_r($total_amount); echo "<hr>";
   // print_r($inp_amt);
   // print_r($_POST);
  
 if( ($total_amount<$inp_amt) && isset($_POST['sell'])) {
-   $_SESSION["error"] = "Cash not available!";
+   $_SESSION["error"] = "Stock not available!";
 header("Location:page1.php");
   die("Not available to sell!");
 
@@ -128,7 +139,7 @@ header("Location:page1.php");
  //die;
 }
 
-if(abs($inp_amt)>$cash_in_hand){
+if((abs($inp_amt)>$cash_in_hand) && isset($_POST['buy'])){
    $_SESSION["error"] = "Cash not available!";
 header("Location:page1.php");
   die("Cash not available!");
@@ -149,6 +160,9 @@ $qry_result = $conn->query($check_portfolio);
 $qry_row = $qry_result->fetch_assoc();
 if(!empty($qry_row)) {
   $id=$qry_row['id'];
+  if(isset($_POST['sell'])){
+    $inp_amt = -1 * abs($inp_amt);
+  }
   $invested_value = $inp_amt+$qry_row['invested_value'];
   $current_value = $inp_amt+$qry_row['current_value'];
       $update = "UPDATE portfolio SET invested_value = '$invested_value', current_value = '$current_value' WHERE id='$id';";
@@ -212,6 +226,7 @@ die();
 <!DOCTYPE html>
 <html lang="en">
 <head>
+  <link rel="stylesheet" href="./style.css">
   <meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <title>Parallax Template - Materialize</title>
@@ -220,6 +235,19 @@ die();
   <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
   <link href="css/materialize.css" type="text/css" rel="stylesheet" media="screen,projection"/>
   <link href="css/style.css" type="text/css" rel="stylesheet" media="screen,projection"/>
+  <style type="text/css">
+    .card .card-image img {
+      height:81px;
+    }
+    input[type=range] + .thumb.active .value{
+      margin-top:0px;
+      margin-left: -1px;
+    }
+  </style>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/normalize/5.0.0/normalize.min.css">
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prefixfree/1.0.7/prefixfree.min.js"></script>
 </head>
 <body>
   <nav class="white" role="navigation">
@@ -249,10 +277,7 @@ die();
     ?>
    </div>
 
-
-  <div class="container">
-
-    <div class="section">
+ <div class="section">
       <form class="" method="post" action="page1.php">
         <input type="hidden" name="next_event" value="1">
          
@@ -263,224 +288,400 @@ die();
               </div>
       </form>
     </div>
-    <div class="section">
-      <div class="col s12 center">
-          <h3><i class="mdi-content-send brown-text"></i></h3>
-          <h4>Expenses</h4>
-      </div>
-      <!--   Icon Section   -->
-      <div class="row">
 
-     <div class="col s8 center">
-      <?php 
-
-      if ($result_exp->num_rows > 0) {
-  // output data of each row
-  while($row_exp = $result_exp->fetch_assoc()) {
-    $result_exp1 = $conn->query($transactions);
-
-      ?>
-      <?php
-                $name = str_replace(' ','',$row_exp["name"]);
-                $market_value_price = $_SESSION[strtolower($name)];
-                 ?> 
-       <form class="col m6" method="post" action="page1.php">
-        <input type="hidden" name="investment_type" value="<?php echo $row_exp['name']; ?>">
-       
-        <input type="hidden" name="current_market_value" value="<?php echo $market_value_price; ?>">
-
-
-        <input type="hidden" name="happiness_quotient" value="<?php echo $row_exp['happiness_quotient']; ?>">
-      <div class="row">
-          <div class="">
-            <div class="card blue-grey darken-1">
-              <div class="card-content white-text">
-                <span class="card-title"><?php echo isset($row_exp["name"]) ? $row_exp["name"]:""; ?></span>
-                
-                <p>Current Market Price : <?php echo $market_value_price; ?></p>
-                <?php
-                
-                $amt = 0;
-                 if (isset($result_exp1) && !empty($result_exp1) && ($result_exp1->num_rows > 0)) {
-  // output data of each row
-  while($row_exp1 = $result_exp1->fetch_assoc()) {
-//print_r($row1['name']);print_r($row['name']);
-if(strtolower($row_exp1["expense_investment_name"])==strtolower($row_exp["name"])){
-  $amt = $row_exp1['SUM(buy_amount)'];
-}
-  }}
-  $input_amount =  isset($row_exp["market_value"]) ? $row_exp["market_value"]:"";
-  // echo "<pre> <hr>";print_r($input_amount);
-  
-                 ?>
-                <p>Amount Invested : <?php echo $amt; ?></p>
-                 <input type="hidden" name="amt_inv" value="<?php echo $amt; ?>">
-                <p>
-                  
-                   <input id="inp_amt" name="inp_amt" type="hidden" value="<?php echo $input_amount;?>" class="validate"  required>
-            <label for="inp_amt">Amount</label>
-                   <?php 
-                 
-                   ?>
-                   
-                </p>
-              </div>
-              <div class="card-action">
-                <?php if(in_array(strtolower($row_exp["name"]), ['get married','higher education'])){
-
-                  if(in_array(strtolower($row_exp["name"]), $json_once_expenses_purchased)){
-                    ?>
-                      <button class="btn waves-effect waves-light" type="submit" name="buy_expenses" disabled>Buy
-                       <i class="material-icons right">send</i>
-                    <?php
-                  } else {
-                 ?>
-                  <button class="btn waves-effect waves-light" type="submit" name="buy_expenses">Buy
-            <i class="material-icons right">send</i>
-
-                <?php 
-              }
-
-              } else {
-                if(in_array(strtolower($row_exp["name"]), $json_expenses_purchased)){
-                  ?>
-                  <button class="btn waves-effect waves-light" type="submit" name="buy_expenses" disabled>Buy
-            <i class="material-icons right">send</i>
-                  <?php
-                } else {
-                ?> 
-                  <button class="btn waves-effect waves-light" type="submit" name="buy_expenses">Buy
-            <i class="material-icons right">send</i>
-                <?php 
-              }
-              } ?> 
-              
-              </div>
-            </div>
-          </div>
-        </div>
-      </form>
-        <?php 
-      }
-    }
-        ?>
-
- <?php 
+   <section>
+     <div class="row">
+      <!-- Start Three rows of investment options -->
+       <?php 
+       $inv_count=0;$inv_id=[];
       if ($result_investment_options->num_rows > 0) {
   // output data of each row
-  while($row = $result_investment_options->fetch_assoc()) {
+  while(($row = $result_investment_options->fetch_assoc()) && (in_array($row['id'], [1,2,3])) ) {
     $result1 = $conn->query($transactions);
-  
+      $inv_count++;$inv_id[]=$row['id'];
       ?>
       <?php
-
-                 $name = str_replace(' ','',$row["name"]);
-
-                $market_value_price = $_SESSION[strtolower($name)];
-                 ?> 
-       <form class="col s8 m6" method="post" action="page1.php">
-        <input type="hidden" name="investment_type" value="<?php echo $row['name']; ?>">
-       
-        <input type="hidden" name="current_market_value" value="<?php echo $market_value_price; ?>">
-      <div class="row">
-          <div class="col s8 m6">
-            <div class="card blue-grey darken-1">
-              <div class="card-content white-text">
-                <span class="card-title"><?php echo isset($row["name"]) ? $row["name"]:""; ?></span>
-                 
-                <p>Current Market Price : <?php echo $market_value_price; ?></p>
-                <?php
-                $amt = 0;
-                 if(isset($result1) && !empty($result1) && ($result1->num_rows > 0) ) {
-  // output data of each row
-  while($row1 = $result1->fetch_assoc()) {
-//print_r($row1['name']);print_r($row['name']);
-if(strtolower($row1["expense_investment_name"])==strtolower($row["name"])){
-  $amt = $row1['SUM(sell_amount)'];
-}
-  }}
-                 ?>
-                <p>Amount Invested : <?php echo $amt; ?></p>
-                 <input type="hidden" name="amt_inv" value="<?php echo $amt; ?>">
-                <p>
-                  <?php
-                  if($row["type"]==1) {
-
-                  ?>
-                  <div class="row">
-                    <div class="input-field col s12">
-    <select name="property_unit">
-      <option value="" disabled selected>Choose your option</option>
-      <option value="1">1 Unit</option>
-      <option value="2">2 Unit</option>
-      <option value="3">3 Unit</option>
-    </select>
-    <label>Property is available in units to buy.</label>
-  </div>
-                  </div>
-                  <?php
-                } else {
-
-                   ?>
-                   <input id="inp_amt" name="inp_amt" type="text" class="validate" required>
-            <label for="inp_amt">Amount</label>
-                   <?php 
-                 }
-                   ?>
-                   
-                </p>
-              </div>
-              <div class="card-action">
-                <button class="btn waves-effect waves-light" type="submit" name="buy">Buy
-            <i class="material-icons right">send</i>
-                <button class="btn waves-effect waves-light" type="submit" name="sell">Sell
-            <i class="material-icons right">send</i>
-              </div>
-            </div>
+        $name = str_replace(' ','',$row["name"]);
+        $market_value_price = $_SESSION[strtolower($name)];
+      ?>
+       <?php
+        $amt = 0;
+        // if(isset($result1) && !empty($result1) && ($result1->num_rows > 0) ) {
+        //   // output data of each row
+        //   while($row1 = $result1->fetch_assoc()) {
+        //     //print_r($row1['name']);print_r($row['name']);
+        //     if(strtolower($row1["expense_investment_name"])==strtolower($row["name"])){
+        //       $amt = $row1['SUM(sell_amount)'];
+        //     }
+        //   }
+        // }
+        if(isset($invested_amount['details']) && is_array($invested_amount['details']) ){
+           foreach ($invested_amount['details'] as $key => $row5) {
+            if(strtolower($row5["name"])==strtolower($row["name"])){
+              $amt =$row5['current_value'];
+            }
+           }
+        }
+       ?>
+     <form  method="post" action="page1.php">
+      <div class="col s12 l2">
+       <div class="newcard">
+          <div class="banner">
           </div>
+          <h5 class="name"><?php echo $row['name']; ?></h5>
+          <input type="hidden" name="investment_type" value="<?php echo $row['name']; ?>">
+          <input type="hidden" name="current_market_value" value="<?php echo $market_value_price; ?>">
+          <div class="title">Yellow Color Metal cant eat but people want it</div>
+          <div class="actions">
+             <div class="follow-info">
+                <h7><a href="#"><span><?php echo $market_value_price; ?></span><small>Price</small></a></h7>
+                <h7><a href="#"><span><?php echo $amt; ?></span><small>Owned</small></a></h7>
+                <input type="hidden" name="amt_inv" value="<?php echo $amt; ?>">
+             </div>
+             <h7 style="text-align: center;">
+                <a href="#">
+                <span>
+                <output name="inp_amt_out" id="inp_amt_out" style="color: #26a69a;">5000</output>
+                </span>
+                <small>   </small>
+                </a>
+             </h7>
+             <div class="title" style="padding: 0 0 0 0;">Select Amount</div>
+             <div class="">
+                <p class="range-field">
+                   <input type="range" id="inp_amt_id" name="inp_amt" min="100" max="10000" step="100" value="5000" oninput="inp_amt_out.value = inp_amt_id.value" />
+                </p>
+             </div>
+             <div class="">
+                <table>
+                   <tr style="border-bottom:0px;">
+                      <td style="padding: 0 0 0 0 !important;">
+                         <div class="follow-btn">
+                            <button style="background-color:#1c9eff;" type="submit" name="buy">Buy</button>
+                         </div>
+                      </td>
+                      <td style="padding: 0 0 0 0 !important;">
+                         <div class="follow-btn">
+                            <button style="background-color:#c62828;" type="submit" name="sell">Sell</button>
+                         </div>
+                      </td>
+                   </tr>
+                </table>
+             </div>
+           </div>
         </div>
+      </div>
       </form>
         <?php 
       }
     }
         ?>
+       <!-- End Three rows of investment options -->
+       <div class="col s12 l4">
+          <ul class="collection">
+            <?php
+            if ($result_exp->num_rows > 0) {
+              // output data of each row
+               $exp_count=0;$exp_id=[];
+              while(($row_exp = $result_exp->fetch_assoc()) && ($exp_count<4)) {
+                $result_exp1 = $conn->query($transactions);
+                $exp_count++;$exp_id[]=$row_exp['id'];
+            ?>
+            <?php
+                $name = str_replace(' ','',$row_exp["name"]);
+                $market_value_price = $_SESSION[strtolower($name)];
+            ?>
+            <?php
+            $amt = 0;
+            if (isset($result_exp1) && !empty($result_exp1) && ($result_exp1->num_rows > 0)) {
+              // output data of each row
+              while($row_exp1 = $result_exp1->fetch_assoc()) {
+                //print_r($row1['name']);print_r($row['name']);
+                if(strtolower($row_exp1["expense_investment_name"])==strtolower($row_exp["name"])){
+                  $amt = $row_exp1['SUM(buy_amount)'];
+                }
+              }
+            }
+            $input_amount =  isset($row_exp["market_value"]) ? $row_exp["market_value"]:"";
+            // echo "<pre> <hr>";print_r($input_amount);  
+           ?>
+                <form  method="post" action="page1.php">
+                  <input type="hidden" name="investment_type" value="<?php echo $row_exp['name']; ?>">
+                  <input type="hidden" name="current_market_value" value="<?php echo $market_value_price; ?>">
+                  <input id="inp_amt" name="inp_amt" type="hidden" value="<?php echo $input_amount;?>" class="validate"  required>
+                  <input type="hidden" name="amt_inv" value="<?php echo $amt; ?>">
+                   <input type="hidden" name="happiness_quotient" value="<?php echo $row_exp['happiness_quotient']; ?>">
+                  <li class="collection-item avatar">
+                     <img src="https://materializecss.com/images/yuna.jpg" alt="" class="circle">
+                     <span class="title"><?php echo $row_exp['name']; ?></span>
+                     <p>Price : <?php echo $market_value_price; ?> <br>
+                     
+                     </p>
+                     <a href="#!" class="secondary-content">
+                        <div class="expense">
+                           <div class="actions">
+                              <div class="follow-btn">
+                                 <?php if(in_array(strtolower($row_exp["name"]), ['get married','higher education'])){
+                                          if(in_array(strtolower($row_exp["name"]), $json_once_expenses_purchased)){
+                                  ?>
+                                            <button style="background-color:#1c9eff;color:grey;" type="submit" name="buy_expenses" disabled>Buy</button>
+                                   <?php
+                                          } else {
+                                          ?>
+                                          <button style="background-color:#1c9eff;color:white;" type="submit" name="buy_expenses">Buy</button>
+                                  <?php 
+                                          }
+                                        } else {
+                                          if(in_array(strtolower($row_exp["name"]), $json_expenses_purchased)){
+                                  ?>
+                                          <button style="background-color:#1c9eff;color:grey;" type="submit" name="buy_expenses" disabled>Buy</button>
+                                  <?php
+                                        } else {
+                                        ?>
+                                        <button style="background-color:#1c9eff;color:white;" type="submit" name="buy_expenses" >Buy</button>
+                                  <?php 
+                                        }
+                                        }
+                                  ?> 
 
-
+                              </div>
+                           </div>
+                        </div>
+                     </a>
+                  </li>
+                </form>
+                <?php 
+      }
+    }
+        ?>
+          </ul>
+        </div>
+        
+ <!--Start of Score card -->
+       <div class="col s12 l2">
+         <div class="newcard">
+            <div class="banner">
+            </div>
+            <h5 class="name">
+            Score Board</h5>
+            <div class="title">Keep inestmenting wisely</div>
+            <div class="actions">
+               <div class="follow-info">
+                  <h7><a href="#"><span><?php echo $_SESSION["first_name"]." ".$_SESSION["last_name"]?></span><small>Name</small></a></h7>
+                  <h7><a href="#"><span><?php echo $_SESSION["id"];?></span><small>User id</small></a></h7>
+                </div>
+                <div class="follow-info">
+                  <h7><a href="#"><span><?php echo $happiness_quotient; ?></span><small>Happiness Coeffecient</small></a></h7>
+                  <h7><a href="#"><span><?php echo $cash_in_hand; ?></span><small>Cash in hand</small></a></h7>
+                  </div>
+                <div class="follow-info">
+                  <h7><a href="#"><span><?php echo abs($invested_amount['total']); ?></span><small>Investment</small></a></h7>
+                  <h7><a href="#"><span><?php echo ($invested_amount['current_value']+$cash_in_hand); ?></span><small>Networth</small></a></h7>
+                  </div>
+                <div class="follow-info">
+                  <h7><a href="#"><span><?php echo $_SESSION['year']; ?></span><small>Current Year</small></a></h7>
+                  </div>
+                <div class="follow-info">
+                  <?php 
+                  //  $result5 = $conn->query($sql1);
+                  $i=0;
+                    foreach ($invested_amount['details'] as $key => $row5) {
+                      $i++;
+                      if ($i % 2 == 0) {
+                        echo "</div><div class=\"follow-info\">";
+                      }
+                    //$json5[] = $row5;
+                      echo "<h7><a href=\"#\"><span>".abs($row5['current_value'])."</span><small>".ucwords($row5['name'])."</small></a></h7>";
+                    }
+                  ?>
+               </div>
+            </div>
+         </div>
+      </div>
 
      </div>
+   </section>
+  <section>
+     <div class="row">
+      <!-- Start Three rows of investment options -->
+       <?php 
+      //echo "<pre>";print_r($inv_id);die;
+      if ($result_investment_options_1->num_rows > 0) {
+  // output data of each row
+  while(($row_1 = $result_investment_options_1->fetch_assoc())  ) {
+    if(in_array($row_1['id'], [5,6,7]) ) {
+    $result1 = $conn->query($transactions);
+      ?>
+      <?php
+        $name = str_replace(' ','',$row_1["name"]);
+        $market_value_price = $_SESSION[strtolower($name)];
+      ?>
+       <?php
+        $amt = 0;
+        // if(isset($result1) && !empty($result1) && ($result1->num_rows > 0) ) {
+        //   // output data of each row
+        //   while($row1 = $result1->fetch_assoc()) {
+        //     //print_r($row1['name']);print_r($row['name']);
+        //     if(strtolower($row1["expense_investment_name"])==strtolower($row_1["name"])){
+        //       $amt = $row1['SUM(sell_amount)'];
+        //     }
+        //   }
+        // }
+        if(isset($invested_amount['details']) && is_array($invested_amount['details']) ){
+           foreach ($invested_amount['details'] as $key => $row5) {
+            if(strtolower($row5["name"])==strtolower($row_1["name"])){
+              $amt =$row5['current_value'];
+            }
+           }
+        }
+       ?>
+     <form  method="post" action="page1.php">
+      <div class="col s12 l2">
+       <div class="newcard">
+          <div class="banner">
+          </div>
+          <h5 class="name"><?php echo $row_1['name']; ?></h5>
+          <input type="hidden" name="investment_type" value="<?php echo $row_1['name']; ?>">
+          <div class="title">Yellow Color Metal cant eat but people want it</div>
+          <div class="actions">
+             <div class="follow-info">
+                <h7><a href="#"><span><?php echo $market_value_price; ?></span><small>Price</small></a></h7>
+                <h7><a href="#"><span><?php echo $amt; ?></span><small>Owned</small></a></h7>
+                <input type="hidden" name="amt_inv" value="<?php echo $amt; ?>">
 
-
-     <div class="col s4 center">
-   
-       <div class="row">
-        <h4>Session id : <?php echo $_SESSION["id"];?></h4>
-          <h4>Name : <?php echo $_SESSION["first_name"]." ".$_SESSION["last_name"]?></h4>
-          <h4>Cash in hand : <?php echo $cash_in_hand; ?></h4>
-        <h4>Happiness Coeffecient : <?php echo $happiness_quotient; ?></h4>
-
-       
-        <div>
-          <h4>Investment :  <?php echo abs($invested_amount['total']); ?></h4>
-          <h4>Networth :  <?php echo ($invested_amount['current_value']+$cash_in_hand); ?></h4>
-          <h4>Year : <?php echo $_SESSION['year']; ?></h4>
-          <h4>Investment Details </h4>
-          <?php 
-//  $result5 = $conn->query($sql1);
-foreach ($invested_amount['details'] as $key => $row5) {
-     //$json5[] = $row5;
-     echo "<h5>".ucwords($row5['name'])." : "."<strong>".abs($row5['current_value'])."</h5></strong>";
-}
-
-
-          ?>
-
+          <input type="hidden" name="current_market_value" value="<?php echo $market_value_price; ?>">
+             </div>
+             <h7 style="text-align: center;">
+                <a href="#">
+                <span>
+                <output name="inp_amt_out" id="inp_amt_out" style="color: #26a69a;">5000</output>
+                </span>
+                <small>   </small>
+                </a>
+             </h7>
+             <div class="title" style="padding: 0 0 0 0;">Select Amount</div>
+             <div class="">
+                <p class="range-field">
+                   <input type="range" id="inp_amt_id" name="inp_amt" min="100" max="10000" step="100" value="5000" oninput="inp_amt_out.value = inp_amt_id.value" />
+                </p>
+             </div>
+             <div class="">
+                <table>
+                   <tr style="border-bottom:0px;">
+                      <td style="padding: 0 0 0 0 !important;">
+                         <div class="follow-btn">
+                            <button style="background-color:#1c9eff;" type="submit" name="buy">Buy</button>
+                         </div>
+                      </td>
+                      <td style="padding: 0 0 0 0 !important;">
+                         <div class="follow-btn">
+                            <button style="background-color:#c62828;" type="submit" name="sell">Sell</button>
+                         </div>
+                      </td>
+                   </tr>
+                </table>
+             </div>
+           </div>
         </div>
-       </div>
+      </div>
+      </form>
+        <?php 
+      }
+      }
+    }
+        ?>
+       <!-- End Three rows of investment options -->
+       <div class="col s12 l4">
+          <ul class="collection" style="margin-top: -131px;">
+            <?php
+            if ($result_exp_1->num_rows > 0) {
+              // output data of each row
+              
+              while($row_exp_1 = $result_exp_1->fetch_assoc()) {
+                if(in_array($row_exp_1['id'], [5,6,7,8,9,10])) {
+                $result_exp1 = $conn->query($transactions);
+                
+            ?>
+            <?php
+                $name = str_replace(' ','',$row_exp_1["name"]);
+                $market_value_price = $_SESSION[strtolower($name)];
+            ?>
+            <?php
+            $amt = 0;
+            if (isset($result_exp1) && !empty($result_exp1) && ($result_exp1->num_rows > 0)) {
+              // output data of each row
+              while($row_exp1 = $result_exp1->fetch_assoc()) {
+                //print_r($row1['name']);print_r($row['name']);
+                if(strtolower($row_exp1["expense_investment_name"])==strtolower($row_exp_1["name"])){
+                  $amt = $row_exp1['SUM(buy_amount)'];
+                }
+              }
+            }
+            $input_amount =  isset($row_exp_1["market_value"]) ? $row_exp_1["market_value"]:"";
+            // echo "<pre> <hr>";print_r($input_amount);  
+           ?>
+                <form  method="post" action="page1.php">
+                  <input type="hidden" name="investment_type" value="<?php echo $row_exp_1['name']; ?>">
+                  <input type="hidden" name="current_market_value" value="<?php echo $market_value_price; ?>">
+                  <input id="inp_amt" name="inp_amt" type="hidden" value="<?php echo $input_amount;?>" class="validate"  required>
+                  <input type="hidden" name="amt_inv" value="<?php echo $amt; ?>">
+                   <input type="hidden" name="happiness_quotient" value="<?php echo $row_exp_1['happiness_quotient']; ?>">
+                  <li class="collection-item avatar">
+                     <img src="https://materializecss.com/images/yuna.jpg" alt="" class="circle">
+                     <span class="title"><?php echo $row_exp_1['name']; ?></span>
+                     <p>Price : <?php echo $market_value_price; ?> <br>
+                     
+                     </p>
+                     <a href="#!" class="secondary-content">
+                        <div class="expense">
+                           <div class="actions">
+                              <div class="follow-btn">
+                                 <?php if(in_array(strtolower($row_exp_1["name"]), ['get married','higher education'])){
+                                          if(in_array(strtolower($row_exp_1["name"]), $json_once_expenses_purchased)){
+                                  ?>
+                                            <button style="background-color:#1c9eff;color:grey;" type="submit" name="buy_expenses" disabled>Buy</button>
+                                   <?php
+                                          } else {
+                                          ?>
+                                          <button style="background-color:#1c9eff;color:white;" type="submit" name="buy_expenses">Buy</button>
+                                  <?php 
+                                          }
+                                        } else {
+                                          if(in_array(strtolower($row_exp_1["name"]), $json_expenses_purchased)){
+                                  ?>
+                                          <button style="background-color:#1c9eff;color:grey;" type="submit" name="buy_expenses" disabled>Buy</button>
+                                  <?php
+                                        } else {
+                                        ?>
+                                        <button style="background-color:#1c9eff;color:white;" type="submit" name="buy_expenses" >Buy</button>
+                                  <?php 
+                                        }
+                                        }
+                                  ?> 
 
-    </div>
+                              </div>
+                           </div>
+                        </div>
+                     </a>
+                  </li>
+                </form>
+                <?php 
+              }
+      }
+    }
+        ?>
+          </ul>
+        </div>
+        
+       
 
-    </div>
-  </div>
+     </div>
+   </section>
+
+  
+   
+
+   
 
   <div>
      <!-- Modal Structure -->
